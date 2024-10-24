@@ -4,9 +4,18 @@
 <template id="s_share" name="Share">
     <div t-attf-class="s_share text-start o_no_link_popover #{_classes}">
         <h4 t-if="not _no_title" class="s_share_title d-none">Share</h4>
+
+        <!-- ## EXCLUDE SHARE LINKS -->
+        <t t-set="_exclude_share_links" t-value="['twitter', 'whatsapp' ]"/>
+
         <a t-if="not _exclude_share_links or not 'facebook' in _exclude_share_links" href="https://www.facebook.com/sharer/sharer.php?u={url}" t-attf-class="s_share_facebook #{_link_classes}" target="_blank" aria-label="Facebook">
             <i t-attf-class="fa fa-facebook #{not _link_classes and 'rounded shadow-sm'}"/>
         </a>
+        <!-- ## INCLUDE/ENABLE Instagram -->
+        <a t-if="not _exclude_share_links or not 'instagram' in _exclude_share_links" href="https://www.instagram.com/sharer/sharer.php?u={url}" t-attf-class="s_share_instagram #{_link_classes}" target="_blank" aria-label="Instagram">
+            <i t-attf-class="fa fa-instagram #{not _link_classes and 'rounded shadow-sm'}"/>
+        </a>
+        
         <a t-if="not _exclude_share_links or not 'twitter' in _exclude_share_links" href="https://twitter.com/intent/tweet?text={title}&amp;url={url}" t-attf-class="s_share_twitter #{_link_classes}" target="_blank" aria-label="Twitter">
             <i t-attf-class="fa fa-twitter #{not _link_classes and 'rounded shadow-sm'}"/>
         </a>

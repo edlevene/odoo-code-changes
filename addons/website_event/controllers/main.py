@@ -16,6 +16,23 @@ from odoo.tools.misc import get_lang
 from odoo.tools import lazy
 from odoo.exceptions import UserError
 
+
+###import odoo.tools.speeddate.age_gender_utils
+###import odoo.tools.speeddate.cart_maint
+## ## import test_ctrl_imports
+import odoo.tools.import_speeddate
+
+import logging
+
+_logger = logging.getLogger(__name__)
+
+import sys
+_logger.info("## ## ## MODIFIED sys.path = %s", sys.path)
+
+import odoo.tools.speeddate as spdt
+## #from odoo.tools.speeddate.cart_maint import clear_cart
+## #from odoo.tools.speeddate.age_gender_utils import fail_checks_for_attendee_at_event
+
 class WebsiteEventController(http.Controller):
 
     def sitemap_event(env, rule, qs):
@@ -351,6 +368,7 @@ class WebsiteEventController(http.Controller):
 
         return request.env['event.registration'].sudo().create(registrations_to_create)
 
+    ## WHERE registration confirm AND SOME FINAL VALIDATION OCCUR
     @http.route(['''/event/<model("event.event"):event>/registration/confirm'''], type='http', auth="public", methods=['POST'], website=True)
     def registration_confirm(self, event, **post):
         """ Check before creating and finalize the creation of the registrations
@@ -364,6 +382,23 @@ class WebsiteEventController(http.Controller):
             return request.redirect('/event/%s/register?registration_error_code=insufficient_seats' % event.id)
         attendees_sudo = self._create_attendees_from_registration_post(event, registrations_data)
 
+        a10d_gender = attendees_sudo.env.user.gender
+        a10d_gender_pref_female = attendees_sudo.env.user.gender_pref_female
+        a10d_gender_pref_male = attendees_sudo.env.user.gender_pref_male
+        a10d_birthdate = attendees_sudo.env.user.birthdate
+        _logger.info("## ## ## event.display_name = %s", event.display_name)
+        _logger.info("## ## ## gender = %s", a10d_gender)
+        _logger.info("## ## ## birthdate = %s", a10d_birthdate)
+
+        failures = None
+        if a10d_gender and a10d_birthdate:
+            failures = spdt.fail_checks_for_attendee_at_event(a10d_gender, a10d_gender_pref_female, a10d_gender_pref_male, a10d_birthdate, event.display_name)
+
+        if failures:
+            ### raise UserError(_('%s is not valid here, please register for another Event.', failures))
+            spdt.clear_cart()
+            return request.redirect('/event?registration_msg=Gender_settings_or_Birthdate_did_not_match_event')
+        
         return request.redirect(('/event/%s/registration/success?' % event.id) + werkzeug.urls.url_encode({'registration_ids': ",".join([str(id) for id in attendees_sudo.ids])}))
 
     @http.route(['/event/<model("event.event"):event>/registration/success'], type='http', auth="public", methods=['GET'], website=True, sitemap=False)

@@ -986,7 +986,10 @@ class WebsiteSale(payment_portal.PaymentPortal):
     def checkout_check_address(self, order):
         partner_invoice = order.partner_invoice_id
         if not self._check_billing_partner_mandatory_fields(partner_invoice):
-            return request.redirect('/shop/address?partner_id=%d&mode=billing' % partner_invoice.id)
+            pass  ## NOP -- do nothing!!
+            ## INSTEAD OF return request.redirect('/shop/address?partner_id=%d&mode=billing' % partner_invoice.id)
+            ## NO REDIRECT NEEDED!
+
 
         partner_shipping = order.partner_shipping_id
         if not order.only_services and not self._check_shipping_partner_mandatory_fields(partner_shipping):
@@ -1570,7 +1573,15 @@ class WebsiteSale(payment_portal.PaymentPortal):
             return redirection
 
         if order_sudo._is_public_order():
-            return request.redirect('/shop/address')
+            ## return request.redirect('/shop/address')
+            ## THERE REALLY IS NO PUBLIC order, THIS IS WHERE WE REDIRECT TO 'Sign up'
+            ## AND URL param MARKS THAT WE WANT TO ULTIMATELY GO BACK TO /shop/cart
+            event_str = order_sudo.website_order_line.name   ## split to 2nd line ?
+            newline_at = event_str.find('\n')
+            event_name = event_str[newline_at+1:]
+            event_url_frag = url_encode([('event', event_name)])
+            _logger.info("## ## ## event url frag:%s", event_url_frag) ## event stuff
+            return request.redirect("/web/signup?redirect=/shop/cart&" + event_url_frag)
 
         redirection = self.checkout_check_address(order_sudo)
         if redirection:

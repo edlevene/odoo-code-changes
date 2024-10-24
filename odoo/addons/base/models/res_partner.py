@@ -346,7 +346,12 @@ class Partner(models.Model):
                 name = type_description[self.type]
             if not self.is_company:
                 name = f"{self.commercial_company_name or self.sudo().parent_id.name}, {name}"
-        return name.strip()
+        ## CONCATENATE fname FROM RELATED res.users TABLE AND return TO STORE IN res.partner.complete_name
+        name = name.strip()
+        rel_user = self.env['res.users'].search([('partner_id', '=', self.id)])  ## 'partner_id', '=', self.user.partner_id.id
+        fname = rel_user.fname or " "
+        full_name = fname + ' ' + name
+        return full_name
 
     @api.depends('is_company', 'name', 'parent_id.name', 'type', 'company_name', 'commercial_company_name')
     def _compute_complete_name(self):

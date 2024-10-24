@@ -182,7 +182,16 @@ class Website(Home):
             if request.env['res.users'].browse(uid)._is_internal():
                 redirect = '/web?' + request.httprequest.query_string.decode()
             else:
-                redirect = '/my'
+                ## CHANGE REDIRECT FOR /web/login/successful
+                ## WAS redirect = '/my'
+                ## CHANGED TO redirect = '/sign-up-success'
+
+                ## IF 'Sign up' INVOKED DURING EVENT REG./SALE 
+                if redirect == '/shop/cart':
+                    redirect = '/shop/cart'
+                else:
+                    redirect = '/sign-up-success'
+
         return super()._login_redirect(uid, redirect=redirect)
 
     # Force website=True + auth='public', required for login form layout

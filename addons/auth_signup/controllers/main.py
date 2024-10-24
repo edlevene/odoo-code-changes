@@ -11,10 +11,21 @@ from odoo.addons.base_setup.controllers.main import BaseSetup
 from odoo.exceptions import UserError
 from odoo.http import request
 
+import odoo.tools.import_speeddate  ## IMPORT TO APPEND speeddate DIR TO sys.path  
+import odoo.tools.speeddate as spdt
+
+
 _logger = logging.getLogger(__name__)
 
 LOGIN_SUCCESSFUL_PARAMS.add('account_created')
 
+## ADD EXCEPTION CLASS FOR AGE VALIDATION ON ANY Sign up
+class UnderageError(Exception):
+    pass
+
+## ADD EXCEPTION FOR ATTENDEE Gender/Decade NOT MATCHING Sign up FOR Event
+class AttendeeGenderDecadeError(Exception):
+    pass
 
 class AuthSignupHome(Home):
 
@@ -34,7 +45,7 @@ class AuthSignupHome(Home):
 
     @http.route('/web/signup', type='http', auth='public', website=True, sitemap=False)
     def web_auth_signup(self, *args, **kw):
-        qcontext = self.get_auth_signup_qcontext()
+        qcontext = self.get_auth_signup_qcontext() ## kw HAS NEEDED VALUES
 
         if not qcontext.get('token') and not qcontext.get('signup_enabled'):
             raise werkzeug.exceptions.NotFound()
@@ -59,11 +70,28 @@ class AuthSignupHome(Home):
                 else:
                     _logger.warning("%s", e)
                     qcontext['error'] = _("Could not create a new account.") + "\n" + str(e)
+            ## CATCH UnderageError
+            except UnderageError as e:
+                ## WANT REDIRECT INSTEAD OF EndOfPage MESSAGE
+                return request.redirect('/sign-up-failure')
+            except AttendeeGenderDecadeError as e:
+                qcontext['error'] = e.args[0]
+                ## MUST CLEAR CART -- SAME CODE AS /shop/cart/clear
+                spdt.clear_cart()
 
-        elif 'signup_email' in qcontext:
+                return request.redirect('/event?registration_msg=Gender_settings_or_Birthdate_did_not_match_event')
+
+            
+        elif 'signup_email' in qcontext and qcontext.get('signup_email') != "edlevene@hotmail.com":  ## and user NOT Admin
             user = request.env['res.users'].sudo().search([('email', '=', qcontext.get('signup_email')), ('state', '!=', 'new')], limit=1)
             if user:
-                return request.redirect('/web/login?%s' % url_encode({'login': user.login, 'redirect': '/web'}))
+                ## DON'T WANT TO GO TO /my ACCOUNT PAGE: return request.redirect('/web/login?%s' % url_encode({'login': user.login, 'redirect': '/web'}))
+                ## MAKE redirect CONDITIONAL ON predirect PARAM
+                predirect = request.params.get('redirect')
+                if predirect == '/shop/cart':
+                    return request.redirect('/shop/cart')
+                else:
+                    return request.redirect('/sign-up-success')
 
         response = request.render('auth_signup.signup', qcontext)
         response.headers['X-Frame-Options'] = 'SAMEORIGIN'
@@ -107,15 +135,25 @@ class AuthSignupHome(Home):
         response.headers['X-Frame-Options'] = 'SAMEORIGIN'
         response.headers['Content-Security-Policy'] = "frame-ancestors 'self'"
         return response
-
+    
     def get_auth_signup_config(self):
         """retrieve the module config (which features are enabled) for the login page"""
 
+        def my_get_current_user():
+            """ return login/email for currently logged in user """
+            session_info = request.env['ir.http'].session_info()
+            return session_info.get('username')
+        
         get_param = request.env['ir.config_parameter'].sudo().get_param
+
+        ## FIND LOGGED-IN USER login/email AND PERSIST FOR qcontext update
+        login = my_get_current_user()
+
         return {
             'disable_database_manager': not tools.config['list_db'],
             'signup_enabled': request.env['res.users']._get_signup_invitation_scope() == 'b2c',
             'reset_password_enabled': get_param('auth_signup.reset_password') == 'True',
+            'signup_email': login
         }
 
     def get_auth_signup_qcontext(self):
@@ -136,7 +174,10 @@ class AuthSignupHome(Home):
         return qcontext
 
     def _prepare_signup_values(self, qcontext):
-        values = { key: qcontext.get(key) for key in ('login', 'name', 'password') }
+        # values = { key: qcontext.get(key) for key in ('login', 'name', 'password') }
+        ## ADDITIONAL FIELDS
+        values = { key: qcontext.get(key) for key in ('login', 'mobile', 'name', 'password', 'fname', 'birthdate', 'city', 'state_id', 'zip', 
+            'gender', 'gender_pref_female', 'gender_pref_male', 'gender_pref_alt','how_hear', 'hobbies', 'charities') }
         if not values:
             raise UserError(_("The form was not properly filled in."))
         if values.get('password') != qcontext.get('confirm_password'):
@@ -145,6 +186,33 @@ class AuthSignupHome(Home):
         lang = request.context.get('lang', '')
         if lang in supported_lang_codes:
             values['lang'] = lang
+            
+        ## CONVERT city TO UPPERCASE
+        values['city'] = values.get('city').upper()
+
+        ## A LIKELY PLACE TO VALIDATE/FLAG birthdate FOR UNDER 21
+        ## CALC AGE FROM birthdate
+        age = spdt.calc_age(values['birthdate'])
+
+        ## RAISE UNDER-AGE ERROR
+        if age < 21:
+            qcontext['error'] = _("Your Birthdate is invalid - not eligible for a new account.")
+            raise UnderageError(_("Your Birthdate is invalid - too young for a new account."))
+
+        ## CONCATENTATE fname + name FOR FULL NAME ???
+        ## values['name'] = values.get('fname') + ' ' + values.get('name')
+
+        ## CALL fail_checks_for_attendee_at_event() SEPERATELY, FOR USER WHO JUST DID 'Sign up'
+        event_name = request.params.get('event')
+        _logger.info("## ## ## event name:%s", event_name)
+        ## NOW MAYBE MAKE THAT VALIDATION CALL
+        qcontext['error'] = None
+        if event_name:
+            failures = spdt.fail_checks_for_attendee_at_event(values['gender'], values['gender_pref_female'], values['gender_pref_male'], values['birthdate'], event_name)
+            if failures:
+                ### WILL LATER raise AttendeeGenderDecadeError(_("%s did not match event", failures))
+                qcontext['error'] = failures + " did not match event"
+        
         return values
 
     def do_signup(self, qcontext):
@@ -152,6 +220,13 @@ class AuthSignupHome(Home):
         values = self._prepare_signup_values(qcontext)
         self._signup_with_values(qcontext.get('token'), values)
         request.env.cr.commit()
+        ## *AFTER* Sign up IS COMMITTED, CHECK qcontext AND RAISE ASSUMED ERROR
+        try:
+            if qcontext['error']:
+                _logger.info("## ## ## sensing qcontext error, assuming AttendeeGenderDecadeError")
+                raise AttendeeGenderDecadeError(_(qcontext['error']))
+        except KeyError:
+            pass
 
     def _signup_with_values(self, token, values):
         login, password = request.env['res.users'].sudo().signup(values, token)

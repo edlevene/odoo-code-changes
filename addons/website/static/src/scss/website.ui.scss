@@ -84,10 +84,101 @@ body {
 }
 
 // LOGIN FORM
-.oe_login_form, .oe_signup_form, .oe_reset_password_form {
+.oe_login_form, /*.oe_signup_form,*/ .oe_reset_password_form {
     max-width: 300px;
     position: relative;
-    margin: 50px auto;
+    margin: 200px auto;
+}
+/* new SIGNUP FORM */
+// For mobile view
+@media (max-width: 767px) {
+.oe_signup_form {
+    max-width: 300px;
+    //position: relative;
+    margin-top: 10px;
+    margin-left: 10px;
+    margin-bottom: 10px;
+}
+#city {
+    margin-right: 10px;
+    margin-top: 10px;
+}
+#zip {
+    padding-right: 10px;
+    margin-top: 10px;
+}
+
+}
+// For desktop view
+@media (min-width: 768px) {
+.oe_signup_form {
+    max-width: 800px;
+    //position: relative;
+    margin-top: 20px;
+    margin-left: 320px;
+    margin-bottom: 20px;   
+}
+#phone-explain {
+    margin-left: 60px;
+}
+#city {
+    margin-right: 10px;
+    margin-top: 7px;
+}
+#zip {
+    padding-right: 10px;
+    margin-top: 7px;
+}
+
+.btn {
+    max-width: 200px;
+    margin-left: 120px;
+}
+}
+.form-control-med {
+    min-height: calc(1.5em + 0.5rem + 2px);
+    padding: 0.5rem 1rem;
+    font-size: 0.75rem;     //0.875rem;
+    border-radius: 0.3rem;
+}
+.form-control-med {
+    padding-right: 3;
+    padding-left: 3;
+}
+  textarea.form-control-med {
+    min-height: calc(1.5em + 0.5rem + 2px);
+}
+
+.login-mobile {
+    display:flex; //flex-direction: row;
+}
+.field-mobile {
+    margin-left: 10px;
+    //max-width: 120px;
+}
+.names {
+    display:flex; flex-direction: row;
+}
+#fname {
+    margin-right: 10px;
+}
+.city-state-zip {
+    display:flex; flex-direction: row;
+}
+#state {
+    margin-right: 5px;
+}
+.gender-radio {
+    margin-right: 10px;
+}
+.gender-checkbox {
+    margin-right: 10px;
+}
+#password {
+    max-width: 250px;
+}
+#confirm_password {
+    max-width: 250px;
 }
 
 // POPOVER NAVIGATION

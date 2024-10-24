@@ -30,6 +30,12 @@ class ResPartner(models.Model):
     signup_valid = fields.Boolean(compute='_compute_signup_valid', string='Signup Token is Valid')
     signup_url = fields.Char(compute='_compute_signup_url', string='Signup URL')
 
+    ## ADDED FIELDS
+    city = fields.Char('City')
+    state_id = fields.Many2one(comodel_name='res.country.state', string="State", readonly=False)
+    zip = fields.Char('Zipcode', required=True)
+    mobile = fields.Char('Cell Phone')
+
     def init(self):
         super().init()
         if not sql.column_exists(self.env.cr, self._table, "signup_token"):

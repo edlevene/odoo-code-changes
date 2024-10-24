@@ -24,6 +24,25 @@ class ResUsers(models.Model):
 
     state = fields.Selection(compute='_compute_state', search='_search_state', string='Status',
                  selection=[('new', 'Never Connected'), ('active', 'Confirmed')])
+    
+    ## ADDED FIELDS:
+    fname = fields.Char('First Name', required=True)
+    birthdate = fields.Date('Your Birthdate', required=True)
+    gender = fields.Selection([("M", "Male"), ("F", "Female"), ("O", "Other")], string="Your Gender*")  ## CHANGE "Other" to "Alternative" BUT LEAVE "O" ??
+    # gender_preference = fields.Selection([("F", "Female"), ("M", "Male"), ("O", "Other")], 
+    # string="Date's Gender*", help="Gender(s) of the people you would like to date")
+    gender_pref_female = fields.Boolean('Female')
+    gender_pref_male = fields.Boolean('Male')
+    gender_pref_alt = fields.Boolean('Alternative')
+
+    # how_hear = fields.Selection([('ref', 'Family / Friend'), ('social', 'Social: Facebook, Instagram, LinkedIn'),
+    # ('search', 'Search: Google, Bing, Yelp, other'), ('ad', 'Advertising'), ('coupon', 'Coupon'), 
+    # ('flyer', 'Flyer / Business Card'), ('event', 'Event: vendor booth'), ('venue', 'Venue'), ('other', 'Other')],
+    # string = 'How did you hear about us?')
+    how_hear = fields.Char('How did you hear about us?')
+
+    hobbies=fields.Text('Favorite Themes / Interests / Hobbies')
+    charities=fields.Char('Favorite Charities')
 
     def _search_state(self, operator, value):
         negative = operator in expression.NEGATIVE_TERM_OPERATORS
@@ -71,7 +90,7 @@ class ResUsers(models.Model):
             partner.write({'signup_token': False, 'signup_type': False, 'signup_expiration': False})
 
             partner_user = partner.user_ids and partner.user_ids[0] or False
-
+            
             # avoid overwriting existing (presumably correct) values with geolocation data
             if partner.country_id or partner.zip or partner.city:
                 values.pop('city', None)
@@ -80,9 +99,9 @@ class ResUsers(models.Model):
                 values.pop('lang', None)
 
             if partner_user:
-                # user exists, modify it according to values
                 values.pop('login', None)
                 values.pop('name', None)
+                # user exists, modify it according to values
                 partner_user.write(values)
                 if not partner_user.login_date:
                     partner_user._notify_inviter()
@@ -102,7 +121,8 @@ class ResUsers(models.Model):
         else:
             # no token, sign up an external user
             values['email'] = values.get('email') or values.get('login')
-            self._signup_create_user(values)
+
+        self._signup_create_user(values)
 
         return (values.get('login'), values.get('password'))
 
@@ -305,6 +325,7 @@ class ResUsers(models.Model):
         city = request.geoip.get('city') or False
         region = request.geoip.get('region_name') or False
         country = request.geoip.get('country') or False
+
         if country:
             if region and city:
                 values['location_address'] = _("Near %(city)s, %(region)s, %(country)s", city=city, region=region, country=country)
